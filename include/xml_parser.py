@@ -19,7 +19,8 @@ def saveXML(xml, fname):
 		f.write(b_xml)
 
 def loadXML(fname):
-	return ET.parse(fname)
+	tree = ET.parse(fname)
+	return tree.getroot()
 
 def clamp(val, minval, maxval):
 	if val < minval:
