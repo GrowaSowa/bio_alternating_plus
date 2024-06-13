@@ -81,19 +81,22 @@ def max_matching(nucleotides, current, verify_list):
 		# verification failed
 		return (-1,-1)
 
+def greedy_main(xmlroot):
+	obj = SequencingProblem(xmlroot)
+	current_seq = obj.start
+	nucleotides = obj.data[0].spectrum.copy()
+	ctrl_spectrum = obj.data[1].spectrum.copy()
+
+	while(len(current_seq) < obj.length):
+		match_i = max_matching(nucleotides, current_seq[-((obj.probe_len-1)*2):], ctrl_spectrum)
+		if match_i[0] == -1:
+			return 'Stuck at local maximum, L BOZO'
+		match_n = nucleotides.pop(match_i[0])
+		ctrl_spectrum.pop(match_i[1])
+		current_seq += match_n[-1:]
+	return current_seq
+
 xmlroot = getXML()
 #saveXML(xmlroot, 'f.xml')
-obj = SequencingProblem(xmlroot)
-current_seq = obj.start
-nucleotides = obj.data[0].spectrum.copy()
-ctrl_spectrum = obj.data[1].spectrum.copy()
-
-while(len(current_seq) < obj.length):
-	match_i = max_matching(nucleotides, current_seq[-((obj.probe_len-1)*2):], ctrl_spectrum)
-	if match_i[0] == -1:
-		print('Stuck at local maximum, L BOZO')
-		sys.exit()
-	match_n = nucleotides.pop(match_i[0])
-	ctrl_spectrum.pop(match_i[1])
-	current_seq += match_n[-1:]
-print(current_seq)
+result = greedy_main(xmlroot)
+print(result)
