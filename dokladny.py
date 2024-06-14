@@ -83,7 +83,7 @@ class PreciseAlgorithm(SequencingProblem):
 	def __init__(self, xmlroot, time_limit):
 		super().__init__(xmlroot)
 		self.max_time = time_limit # seconds
-		self.max_steps = self.length - self.probe_len*2 + 1
+		self.max_steps = self.length - self.probe_len*2 + 2
 		self.graph = {}
 		self.state = AlgorithmState()
 		self.state_snapshots = []
@@ -126,7 +126,7 @@ class PreciseAlgorithm(SequencingProblem):
 			self.failed_state_rollback = True
 
 	def getSteps(self):
-		return len(self.state.odd_path) + len(self.state.even_path) + self.probe_len*2 - 2
+		return len(self.state.odd_path) + len(self.state.even_path)
 
 	def searchSpaceEmpty(self):
 		# check whether we ran out of paths to follow through the graph
