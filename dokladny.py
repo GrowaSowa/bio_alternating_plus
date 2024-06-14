@@ -99,20 +99,20 @@ class PreciseAlgorithm(SequencingProblem):
 				out_verts.remove(i)
 			self.graph[i] = out_verts
 	
-	def rebuildDNA(self, path_odd, path_even):
+	def rebuildDNA(self):
 		result = []
-		for i in range(len(path_odd[0])+1):
+		for i in range(len(self.data[0].spectrum[self.state.odd_path[0]])+1):
 			if i%2 == 0:
-				result.append(path_odd[0][i])
+				result.append(self.data[0].spectrum[self.state.odd_path[0]][i])
 			else:
-				result.append(path_even[0][i-1])
+				result.append(self.data[0].spectrum[self.state.even_path[0]][i-1])
 		i = j = 1
-		while i<len(path_odd) and j<len(path_even):
-			if i<len(path_odd):
-				result.append(path_odd[i][-1])
+		while i<len(self.state.odd_path) or j<len(self.state.even_path):
+			if i<len(self.state.odd_path):
+				result.append(self.data[0].spectrum[self.state.odd_path[i]][-1])
 				i += 1
-			if j<len(path_even):
-				result.append(path_even[j][-1])
+			if j<len(self.state.even_path):
+				result.append(self.data[0].spectrum[self.state.even_path[j]][-1])
 				j += 1
 		self.found_sequences.append(''.join(result))
 	
@@ -130,7 +130,7 @@ class PreciseAlgorithm(SequencingProblem):
 
 	def searchSpaceEmpty(self):
 		# check whether we ran out of paths to follow through the graph
-		return self.failed_state_rollback or (self.getSteps() == self.max_steps and not self.state_snapshots)
+		return self.failed_state_rollback #or (self.getSteps() == self.max_steps and not self.state_snapshots)
 
 	def findOutgoingVertices(self, prev_vertex_in_path):
 		candidates = []
@@ -166,7 +166,7 @@ class PreciseAlgorithm(SequencingProblem):
 
 		#find even path's first vertex
 		f_v = binary_search(self.start[1:], self.data[0].spectrum, 1)
-		# TODO: verify
+		# verify
 		for el in f_v:
 			p = list(self.start[2:])
 			p.append(self.data[0].spectrum[el][-1])
@@ -182,7 +182,7 @@ class PreciseAlgorithm(SequencingProblem):
 		while getCurrExecTime(start_time) < self.max_time and not self.searchSpaceEmpty():
 			if self.getSteps() == self.max_steps:
 				# if found a full sequence, output it
-				self.found_sequences.append()
+				self.rebuildDNA()
 				# and look through the rest of the search space
 				self.restoreLastState()
 
@@ -225,6 +225,7 @@ class PreciseAlgorithm(SequencingProblem):
 				self.restoreLastState()
 
 xmlroot = getXML()
+#xmlroot = loadXML('f.xml')
 #saveXML(xmlroot, 'f.xml')
 obj = PreciseAlgorithm(xmlroot, 300)
 obj.run()
