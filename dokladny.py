@@ -72,10 +72,9 @@ class AlgorithmState():
 	def __init__(self):
 		self.odd_path = []
 		self.even_path = []
-		#self.visited_vertices = []
 		self.used_verifiers = []
 
-	def clear():
+	def clear(self):
 		self.odd_path.clear()
 		self.even_path.clear()
 		self.used_verifiers.clear()
@@ -88,6 +87,7 @@ class PreciseAlgorithm(SequencingProblem):
 		self.graph = {}
 		self.state = AlgorithmState()
 		self.state_snapshots = []
+		self.failed_state_rollback = False
 		self.found_sequences = []
 
 	def buildGraph(self):
@@ -120,39 +120,109 @@ class PreciseAlgorithm(SequencingProblem):
 		self.state_snapshots.append(copy.deepcopy(self.state))
 
 	def restoreLastState(self):
-		self.state = self.state_snapshots.pop()
+		if self.state_snapshots:
+			self.state = self.state_snapshots.pop()
+		else:
+			self.failed_state_rollback = True
+
+	def getSteps(self):
+		return len(self.state.odd_path) + len(self.state.even_path) + self.probe_len*2 - 2
 
 	def searchSpaceEmpty(self):
-		steps = len(self.state.odd_path) + len(self.state.even_path) + self.probe_len*2 - 1
 		# check whether we ran out of paths to follow through the graph
-		return  steps == self.max_steps and not self.found_sequences
+		return self.failed_state_rollback or (self.getSteps() == self.max_steps and not self.state_snapshots)
+
+	def findOutgoingVertices(self, prev_vertex_in_path):
+		candidates = []
+		for el in self.graph[prev_vertex_in_path]:
+			# remove vertices that were already used
+			if el not in self.state.odd_path and el not in self.state.even_path:
+				candidates.append(el)
+		return candidates
+	
+	def verifyCandidates(self, candidates, curr_vertex):
+		verdicts = []
+		for candidate in candidates:
+			# merge current vertex and candidate to get pattern to verify against
+			pattern = list(self.data[0].spectrum[curr_vertex][2:])
+			pattern.append(self.data[0].spectrum[candidate][-1])
+			# should return a 1-element list, as pattern should exactly match
+			# one element from the verifier spectrum, if it exists
+			verifier_id = binary_search_v(pattern, self.data[1].spectrum)
+			# if no verifier found, or verifier matched, but already used
+			if verifier_id[0] != -1 and verifier_id[0] not in self.state.used_verifiers:
+				verdicts.append((candidate, verifier_id[0]))
+		return verdicts
 
 	def run(self):
 		self.state.clear()
 		self.state_snapshots.clear()
-		
+
 		start_time = time.time()
-		buildGraph()
+		self.buildGraph()
 		# find odd path's first vertex
 		f_v = binary_search_v(self.start, self.data[0].spectrum)
 		self.state.odd_path.append(f_v[0])
-		#self.state.visited_vertices.append(f_v[0])
 
 		#find even path's first vertex
 		f_v = binary_search(self.start[1:], self.data[0].spectrum, 1)
-		self.state.even_path.append(f_v[0])
-		#self.state.visited_vertices.append(f_v[0])
-		for i in range(1, len(f_v)): # if multiple candidates found
-			snapshotState()
-			self.state.even_path[0] = f_v[i]
+		# TODO: verify
+		for el in f_v:
+			p = list(self.start[2:])
+			p.append(self.data[0].spectrum[el][-1])
+			f_v_ver = binary_search_v(p, self.data[1].spectrum)
+			if f_v_ver[0] != -1:
+				self.state.even_path.append(el)
+				self.state.used_verifiers.append(f_v_ver[0])
+				self.snapshotState()
+				self.state.even_path.pop(-1)
+				self.state.used_verifiers.pop(-1)
+		self.restoreLastState()
 
 		while getCurrExecTime(start_time) < self.max_time and not self.searchSpaceEmpty():
+			if self.getSteps() == self.max_steps:
+				# if found a full sequence, output it
+				self.found_sequences.append()
+				# and look through the rest of the search space
+				self.restoreLastState()
+
 			if len(self.state.odd_path) > len(self.state.even_path):
-				#TODO: find next vertex in even graph
-				pass
+				# find next vertex in even path
+				candidates = self.findOutgoingVertices(self.state.even_path[-1])
+				verdicts = self.verifyCandidates(candidates, self.state.odd_path[-1])
+				# if no candidates left
+				if not verdicts:
+					self.restoreLastState()
+					continue
+				# state shenanigans lmao
+				for candidate, verifier in verdicts:
+					# make state snapshots for all possibilities
+					self.state.even_path.append(candidate)
+					self.state.used_verifiers.append(verifier)
+					self.snapshotState()
+					self.state.even_path.pop(-1)
+					self.state.used_verifiers.pop(-1)
+				# then grab the last one
+				self.restoreLastState()
+
 			else:
-				#TODO: find next vertex in odd graph
-				pass
+				# find next vertex in odd path
+				candidates = self.findOutgoingVertices(self.state.odd_path[-1])
+				verdicts = self.verifyCandidates(candidates, self.state.even_path[-1])
+				# if no candidates left
+				if not verdicts:
+					self.restoreLastState()
+					continue
+				# state shenanigans lmao
+				for candidate, verifier in verdicts:
+					# make state snapshots for all possibilities
+					self.state.odd_path.append(candidate)
+					self.state.used_verifiers.append(verifier)
+					self.snapshotState()
+					self.state.odd_path.pop(-1)
+					self.state.used_verifiers.pop(-1)
+				# then grab the last one
+				self.restoreLastState()
 
 xmlroot = getXML()
 #saveXML(xmlroot, 'f.xml')
