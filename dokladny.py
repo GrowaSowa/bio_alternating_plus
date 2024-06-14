@@ -63,64 +63,75 @@ def binary_search_v(pattern, items):
             if l_i > r_i:
                 l_i = r_i
 
-def buildGraph(spectrum):
-	graph = {}
-	for i, pattern in enumerate(spectrum):
-		out_verts = binary_search(pattern[2:], spectrum, 2)
-		# delete arcs that start and end in the same vertex
-		if i in out_verts:
-			out_verts.remove(i)
-		graph[i] = out_verts
-	return graph
-
-def rebuildDNA(path_odd, path_even):
-	result = []
-	for i in range(len(path_odd[0])+1):
-		if i%2 == 0:
-			result.append(path_odd[0][i])
-		else:
-			result.append(path_even[0][i-1])
-	i=1
-	j=1
-	while i<len(path_odd) and j<len(path_even):
-		if i<len(path_odd):
-			result.append(path_odd[i][-1])
-			i += 1
-		if j<len(path_even):
-			result.append(path_even[j][-1])
-			j += 1
-	return ''.join(result)
-
 def getCurrExecTime(s_time):
 	now = time.time()
 	return now - s_time
 
+class AlgorithmState():
+	def __init__(self):
+		self.odd_path = []
+		self.even_path = []
+		self.visited_vertices = []
+		self.used_verifiers = []
+
+class PreciseAlgorithm(SequencingProblem):
+	def __init__(self, xmlroot, time_limit):
+		super().__init__(xmlroot)
+		self.max_time = time_limit # seconds
+		self.max_steps = self.length - self.probe_len*2 + 1
+		self.graph = {}
+		self.state = AlgorithmState()
+		self.state_snapshots = []
+		self.found_sequences = []
+
+	def buildGraph(self):
+		self.graph.clear()
+		for i, pattern in enumerate(self.data[0].spectrum):
+			out_verts = binary_search(pattern[2:], self.data[0].spectrum, 2)
+			# delete arcs that start and end in the same vertex
+			if i in out_verts:
+				out_verts.remove(i)
+			self.graph[i] = out_verts
+	
+	def rebuildDNA(self, path_odd, path_even):
+		result = []
+		for i in range(len(path_odd[0])+1):
+			if i%2 == 0:
+				result.append(path_odd[0][i])
+			else:
+				result.append(path_even[0][i-1])
+		i = j = 1
+		while i<len(path_odd) and j<len(path_even):
+			if i<len(path_odd):
+				result.append(path_odd[i][-1])
+				i += 1
+			if j<len(path_even):
+				result.append(path_even[j][-1])
+				j += 1
+		self.found_sequences.append(''.join(result))
+	
+	def run(self):
+		start_time = time.time()
+		buildGraph()
+		# find odd path's first vertex
+		f_v = binary_search_v(self.start, self.data[0].spectrum)
+		self.state.odd_path.append(f_v[0])
+		#find even path's first vertex
+		f_v = binary_search(self.start[1:], self.data[0].spectrum, 1)
+		#TODO: handle the case that multiple candidates are found
+		self.state.even_path.append(f_v[0])
+		while getCurrExecTime(start_time) < self.max_time: #TODO?: add searchspace condition?
+			if len(self.state.odd_path) > len(self.state.even_path):
+				#TODO: find next vertex in even graph
+				pass
+			else:
+				#TODO: find next vertex in odd graph
+				pass
+
 xmlroot = getXML()
 #saveXML(xmlroot, 'f.xml')
-obj = SequencingProblem(xmlroot)
+obj = PreciseAlgorithm(xmlroot, 300)
+obj.run()
 
-found_sequences = []
-odd_path = []
-even_path = []
-visited_vertices = []
-used_verifiers = []
-state_snapshots = []
-
-max_time = 300 # seconds
-max_steps = obj.length - obj.probe_len*2 + 1
-graph = buildGraph(obj.data[0].spectrum)
-start = time.time()
-# find odd path's first vertex
-f_v = binary_search_v(obj.start, obj.data[0].spectrum)
-odd_path.append(f_v[0])
-#find even path's first vertex
-f_v = binary_search(obj.start[1:], obj.data[0].spectrum, 1)
-#TODO: handle the case that multiple candidates are found
-even_path.append(f_v[0])
-while getCurrExecTime(start) < max_time: #TODO?: add searchspace condition?
-	if len(odd_path) > len(even_path):
-		#TODO: find next vertex in even graph
-	else:
-		#TODO: find next vertex in odd graph
-for sequence in found_sequences:
+for sequence in obj.found_sequences:
 	print(sequence)
