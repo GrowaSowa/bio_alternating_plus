@@ -2,6 +2,7 @@ from include.seq_obj import SequencingProblem
 from include.xml_parser import getXML, saveXML, loadXML
 import xml.etree.ElementTree as ET
 import time
+import copy
 
 def compare(string1, string2):
     # assumes strings are of equal length (or at least that s1 is not shorter than s2)
@@ -71,8 +72,13 @@ class AlgorithmState():
 	def __init__(self):
 		self.odd_path = []
 		self.even_path = []
-		self.visited_vertices = []
+		#self.visited_vertices = []
 		self.used_verifiers = []
+
+	def clear():
+		self.odd_path.clear()
+		self.even_path.clear()
+		self.used_verifiers.clear()
 
 class PreciseAlgorithm(SequencingProblem):
 	def __init__(self, xmlroot, time_limit):
@@ -110,17 +116,37 @@ class PreciseAlgorithm(SequencingProblem):
 				j += 1
 		self.found_sequences.append(''.join(result))
 	
+	def snapshotState(self):
+		self.state_snapshots.append(copy.deepcopy(self.state))
+
+	def restoreLastState(self):
+		self.state = self.state_snapshots.pop()
+
+	def searchSpaceEmpty(self):
+		steps = len(self.state.odd_path) + len(self.state.even_path) + self.probe_len*2 - 1
+		# check whether we ran out of paths to follow through the graph
+		return  steps == self.max_steps and not self.found_sequences
+
 	def run(self):
+		self.state.clear()
+		self.state_snapshots.clear()
+		
 		start_time = time.time()
 		buildGraph()
 		# find odd path's first vertex
 		f_v = binary_search_v(self.start, self.data[0].spectrum)
 		self.state.odd_path.append(f_v[0])
+		#self.state.visited_vertices.append(f_v[0])
+
 		#find even path's first vertex
 		f_v = binary_search(self.start[1:], self.data[0].spectrum, 1)
-		#TODO: handle the case that multiple candidates are found
 		self.state.even_path.append(f_v[0])
-		while getCurrExecTime(start_time) < self.max_time: #TODO?: add searchspace condition?
+		#self.state.visited_vertices.append(f_v[0])
+		for i in range(1, len(f_v)): # if multiple candidates found
+			snapshotState()
+			self.state.even_path[0] = f_v[i]
+
+		while getCurrExecTime(start_time) < self.max_time and not self.searchSpaceEmpty():
 			if len(self.state.odd_path) > len(self.state.even_path):
 				#TODO: find next vertex in even graph
 				pass
