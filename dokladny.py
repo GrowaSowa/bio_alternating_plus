@@ -38,6 +38,31 @@ def binary_search(pattern, items, rtrim):
             if l_i > r_i:
                 l_i = r_i
 
+# a binary search that doesn't splice the items in list 
+def binary_search_v(pattern, items):
+    l_i = 0
+    r_i = len(items)-1
+    while True:
+        i = (l_i + r_i)//2
+        val = compare(pattern, items[i])
+        if val == 0:
+            j = i+1
+            while i>0 and compare(pattern, items[i-1])==0:
+                i -= 1
+            while j<len(items) and compare(pattern, items[j])==0:
+                j += 1
+            return list(range(i, j))
+        elif l_i == r_i: # no match found
+            return [-1]
+        elif val < 0:
+            r_i = i-1
+            if r_i < l_i:
+                r_i = l_i
+        elif val > 0:
+            l_i = i+1
+            if l_i > r_i:
+                l_i = r_i
+
 def buildGraph(spectrum):
 	graph = {}
 	for i, pattern in enumerate(spectrum):
@@ -82,15 +107,20 @@ used_verifiers = []
 state_snapshots = []
 
 max_time = 300 # seconds
+max_steps = obj.length - obj.probe_len*2 + 1
 graph = buildGraph(obj.data[0].spectrum)
 start = time.time()
 # find odd path's first vertex
-f_v = binary_search(obj.start, obj.data[0].spectrum)
+f_v = binary_search_v(obj.start, obj.data[0].spectrum)
 odd_path.append(f_v[0])
+#find even path's first vertex
+f_v = binary_search(obj.start[1:], obj.data[0].spectrum, 1)
+#TODO: handle the case that multiple candidates are found
+even_path.append(f_v[0])
 while getCurrExecTime(start) < max_time: #TODO?: add searchspace condition?
 	if len(odd_path) > len(even_path):
-		pass
+		#TODO: find next vertex in even graph
 	else:
-		pass
+		#TODO: find next vertex in odd graph
 for sequence in found_sequences:
 	print(sequence)
